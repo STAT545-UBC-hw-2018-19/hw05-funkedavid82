@@ -1,0 +1,730 @@
+---
+title: "Homework5: Factor and figure management"
+author: "Jummy David"
+date: "October 19, 2018"
+output:
+  github_document:
+    toc: yes
+  
+    
+
+---
+
+
+In this homework, we will reorder a factor in a principled way based on the `gapminder` data and demonstrate the effect in arranged data and in figures. We will write some data to file and load it back into R. We will also improve a figure (or make one from scratch), using new knowledge, e.g., control the color scheme, use factor levels, smoother mechanics. Make a plotly visual and implement visualization design principles.
+
+To start with, load the necessary R packages as in below. 
+
+
+```{r}
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(gapminder))
+suppressPackageStartupMessages(library(gridExtra))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(forcats))
+suppressPackageStartupMessages(library(knitr))
+library(scales)
+library(listviewer)
+library(plotly)
+```
+
+##PART1: Factor management:
+
+I decided to go for `gapminder` dataset. I have shown the first few rows to remind myself of how the dataset look like.
+
+```{r}
+head(gapminder) %>%
+  knitr::kable()
+```
+
+### Original `gapminder` dataset 
+
+To ensure that the variables I'm exploring are indeed factors, we will do some general check before manipulation.
+
+From the code below, obviously variables `continent` and `country` are the only two factors in the gapminder dataset. Variable `continent` is a factor with 5 levels, while variable `country` is factor with 142 levels. With other variables being numeric and integer.
+
+```{r}
+gapminder %>% #has 17404 rows with continent having 5 levels
+  str() #shows the structure of the dataset
+
+nlevels(gapminder$continent) #number of levels
+levels(gapminder$continent) #name of levels
+```
+
+The code here gives the maximum GDP per capita for each continent before removing Oceania. We see here that the default `R` arranged the maximum GDP per capita alphabetically. The violin plot below is also arranged alphabetically.
+
+```{r, fig.width=5, fig.height=2.5}
+Orig_gap <- gapminder %>%
+  group_by(continent) %>%
+  summarise(max = max(gdpPercap)) 
+
+knitr::kable(Orig_gap)
+
+gapminder %>% #Plot the original gapminder with no arrange
+  ggplot(aes(continent, gdpPercap, fill = continent)) +
+  scale_y_log10() +
+  geom_violin() +
+  labs(x="Continent", y = "GDP per capita") +
+  ggtitle("GDP per capita by continent")+theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+#### Exploring the effect of `arrange()` on the original `gapminder` dataset
+
+The chunk code here arranged GDP per capita of each continent in increasing order. We can obviously see that Africa has the lowest GDP per capita, while Asia has the highest from the table. But the figure after arranging is not different from the default arrangement. The command `arrange` has no effect on the figure but thus arrange the table.
+
+
+```{r, fig.width=5, fig.height=2.5}
+Gap_arrange <- gapminder %>% 
+  group_by(continent) %>%
+  summarise(max = max(gdpPercap)) %>%
+  arrange(max)
+
+knitr::kable(Gap_arrange)
+
+gapminder %>%
+  group_by(continent) %>%
+  mutate(max = max(gdpPercap)) %>% #reorder by mean
+  arrange(max) %>%
+  ggplot(aes(continent, gdpPercap, fill = continent)) +
+  scale_y_log10() +
+  geom_violin() +
+  labs(x="Continent", y = "GDP per capita") +
+  ggtitle("GDP per capita by continent")+theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+Here we see that the 5 levels and their names are preserved.
+
+```{r}
+Gap_arrange %>% #continent having 5 levels is preserved
+  str() #shows the structure of the dataset
+
+nlevels(Gap_arrange$continent) #number of levels
+levels(Gap_arrange$continent) #name of levels
+```
+
+#### Exploring the effect of `reodering` a factor on the original gapminder dataset
+
+The chunk code here reordered GDP per capita of each continent in increasing order. We can obviously see that Africa has the lowest GDP per capita, while Asia has the highest from the table as in the case of `arrange`. Also, the figure after `fct_reorder` is different from the default arrangement. The command `fct_reorder` has an effect on the figure and thus reordered the plot according to the maximum GDP per capita.
+
+
+```{r, fig.width=5, fig.height=2.5}
+Gap_reorder <- gapminder %>%
+  mutate(continent = fct_reorder(continent, gdpPercap, .fun = max)) %>%
+  group_by(continent) %>%
+  summarise(max = max(gdpPercap)) 
+
+knitr::kable(Gap_reorder)
+
+
+gapminder %>%
+  mutate(continent = fct_reorder(continent, gdpPercap, .fun = max)) %>% #reorder by mean
+  ggplot(aes(continent, gdpPercap, fill = continent)) +
+  scale_y_log10() +
+  geom_violin() +
+  labs(x="Continent", y = "GDP per capita") +
+  ggtitle("GDP per capita by continent")+theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+Gap_reorder %>% #the continent having 5 levels is preserved
+  str() #shows the structure of the dataset
+
+nlevels(Gap_reorder$continent) #number of levels
+levels(Gap_reorder$continent) #name of levels
+```
+
+### Drop Oceania
+
+```{r}
+table(gapminder$continent) #let us see the table of levels in factor continent before removing the rows. Here we see that Oceania has 24 observations before filtering.
+```
+
+#### Here we are filtering out Oceania.
+
+```{r}
+#select_continent <- c("Africa", "Americas", "Asia", "Europe")
+Gap_select <- gapminder %>%
+  filter(continent != "Oceania")
+
+Gap_select %>% #has 1680 observations with continent having 5 levels and country with 142 levels.
+  str()
+
+table(Gap_select$continent) #after removing the rows/filtering, the rows in Oceania are gone but the level Oceania is still present. 
+
+nlevels(Gap_select$continent) #the code here shows we have 5 levels
+levels(Gap_select$continent) #the code here shows Oceania is still part of the levels and hasn't been dropped
+unique(Gap_select$continent)
+```
+
+#### The effect of filtering out Oceania on the table and figure.
+
+The filtered data before arranging by continent. Even though the structure of the data showed all the 5 levels, the table and the figure did not keep the level Oceania. The table and the figure filtered out Oceania but the level is still kept in the structure.
+
+```{r, fig.width=5, fig.height=2.5}
+gapminder %>% #no Oceania here
+  filter(continent != "Oceania") %>%
+  group_by(continent) %>%
+  summarise(max = max(gdpPercap)) %>%
+  knitr::kable()
+  
+
+gapminder %>% #no Oceania here as well
+  filter(continent != "Oceania") %>% #Plot the filtered data with no arrange
+  ggplot(aes(continent, gdpPercap, fill = continent)) +
+  scale_y_log10() +
+  geom_violin() +
+  labs(x="Continent", y = "GDP per capita") +
+  ggtitle("GDP per capita by continent")+theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+#### Now `arrange` the filtered data by maximum GDP per capita
+
+Here the command `arrange` thus arrange the continent according to the maximum GDP per capita.
+
+```{r, fig.width=5, fig.height=2.5}
+gapminder %>% #the code here actually arranged the data by the maximum GDP per capita
+  filter(continent != "Oceania") %>%
+  group_by(continent) %>%
+  summarise(max = max(gdpPercap)) %>%
+  arrange(max) %>%
+  knitr::kable()
+
+gapminder %>% #Here, arranged did nothing to the figure. It give the same figure as the one without arrange
+  filter(continent != "Oceania") %>%
+  group_by(continent) %>%
+  mutate(max = max(gdpPercap)) %>% #reorder by mean
+  arrange(max) %>%
+  ggplot(aes(continent, gdpPercap, fill = continent)) +
+  scale_y_log10() +
+  geom_violin() +
+  labs(x="Continent", y = "GDP per capita") +
+  ggtitle("GDP per capita by continent")+theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+#### Exploring the effect of `reodering` a factor on the filtered data
+
+The chunk code here reordered GDP per capita of each continent in increasing order. We can obviously see that Africa has the lowest GDP per capita, while Asia has the highest from the table as in the case of `arrange`. Also, the figure after `fct_reorder` is different from the default arrangement. The command `fct_reorder` has an effect on both the table and the figure and thus reordered the plot according to the maximum GDP per capita. The table and the plot give the same information as per their arrangement.
+
+
+```{r, fig.width=5, fig.height=2.5}
+Gap_re <- gapminder %>% #the code here actually arranged the data by the maximum GDP per capita
+  filter(continent != "Oceania") %>%
+  mutate(continent = fct_reorder(continent, gdpPercap, .fun = max)) %>%
+  group_by(continent) %>%
+  summarise(max = max(gdpPercap))
+
+
+  knitr::kable(Gap_re)
+  
+  str(Gap_re) #we see that reordering a filtered data still preserved the levels
+
+gapminder %>% #Here, reorder changed the arrangement of the figure. It gives a different figure in the order of maximum GDP per capita 
+  filter(continent != "Oceania") %>%
+  mutate(continent = fct_reorder(continent, gdpPercap, .fun = max)) %>% #reorder by maximum GDP per capita
+  ggplot(aes(continent, gdpPercap, fill = continent)) +
+  scale_y_log10() +
+  geom_violin() +
+  labs(x="Continent", y = "GDP per capita") +
+  ggtitle("GDP per capita by continent")+theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+### Here we are dropping the `Oceania` level from the filtered data.
+
+Here we have dropped Oceania from the filtered data.
+
+```{r, fig.width=5, fig.height=2.5}
+Gap_select_levels <- gapminder %>%
+  filter(continent != "Oceania") %>%
+  droplevels()
+
+Gap_select_levels %>% #has 1680 rows with continent having 4 levels
+  str()
+
+table(Gap_select_levels$continent) #no more Oceania
+
+nlevels(Gap_select_levels$continent) #we now have 4 levels
+levels(Gap_select_levels$continent) #Oceania is no more among the levels' name
+unique(Gap_select_levels$continent)
+
+Gap_select_levels %>% #this gives the default plot of the data after dropping Oceania
+  group_by(continent) %>%
+  mutate(max = max(gdpPercap)) %>% 
+  ggplot(aes(continent, gdpPercap, fill = continent)) +
+  scale_y_log10() +
+  geom_violin() +
+  labs(x="Continent", y = "GDP per capita") +
+  ggtitle("GDP per capita by continent")+theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+#### `arrange` the dataset after dropping oceania by continent
+
+Again, arrange does nothing to the figure but rearranged the table according to the maximum GDP per capita
+
+```{r, fig.width=5, fig.height=2.5}
+Gap_select_levels %>%
+  group_by(continent) %>%
+  summarise(max = max(gdpPercap)) %>%
+  arrange(max) %>%
+  knitr::kable()
+
+
+
+Gap_select_levels %>%
+  group_by(continent) %>%
+  mutate(max = max(gdpPercap)) %>% #reorder by mean
+  arrange(max) %>%
+  ggplot(aes(continent, gdpPercap, fill = continent)) +
+  scale_y_log10() +
+  geom_violin() +
+  labs(x="Continent", y = "GDP per capita") +
+  ggtitle("GDP per capita by continent")+theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+#### Reorder the levels of continent
+
+Here, we reoredered by the maximum GDP per capita and standard deviation of GDP per capita beyong the most basic choice of the median. In conclusion, we see that the alphabetical order is preserved in figure when `arrange` is used which may not be what we want. So, if we are to arrange factors in our way, it is always advisable to use `fct_reorder`. 
+
+```{r, fig.width=5, fig.height=2.5}
+Gap_select_levels %>% #the table is also reordered by the maximum GDP per capita
+  mutate(continent = fct_reorder(continent, gdpPercap, .fun = max)) %>%
+  group_by(continent) %>%
+  summarise(max = max(gdpPercap)) %>%
+  knitr::kable()
+
+
+#Reorder by the maximum of the variable gdpPercap
+Gap_select_levels %>%
+  mutate(continent = fct_reorder(continent, gdpPercap, .fun = max)) %>% #reorder by mean
+  ggplot(aes(continent, gdpPercap, fill = continent)) +
+  scale_y_log10() +
+  geom_violin() +
+  labs(x="Continent", y = "GDP per capita") +
+  ggtitle("GDP per capita by continent")+theme(plot.title = element_text(hjust = 0.5))
+
+Gap_select_levels %>% #Here we used a different plot type (boxplot) to see if we will have a similar result
+  mutate(continent = fct_reorder(continent, gdpPercap, .fun = max)) %>%
+  ggplot(aes(continent, gdpPercap, fill = continent)) +
+  geom_boxplot() +
+  scale_y_log10() +
+  labs(x="Continent", y = "GDP per capita") +
+  ggtitle("GDP per capita by continent")+theme(plot.title = element_text(hjust = 0.5))
+
+
+
+#Reorder by the standard deviation of the variable gdpPercap
+Gap_select_levels %>%
+  mutate(continent = fct_reorder(continent, gdpPercap, .fun = sd)) %>% #reorder by sd
+  ggplot(aes(continent, gdpPercap, fill = continent)) +
+  scale_y_log10() +
+  geom_violin() +
+  labs(x="Continent", y = "GDP per capita") +
+  ggtitle("GDP per capita by continent")+theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+##PART2: File I/O:
+
+Here we create a new dataset from gapminder by selecting one country from each continent. We make a point and violin plot of life expectancy by continent. 
+
+```{r, fig.width=5, fig.height=2.5}
+sel_countries <- c("Nigeria", "Australia", "Canada", "Austria", "China" ) #the code here group the country we want to select
+Gap_sel <- gapminder %>%
+  filter(country %in% sel_countries) %>% #the code filters all countries to only selected countries
+  droplevels() #we drop the filtered levels
+
+Gap_sel %>% head %>% knitr::kable()
+
+ggplot(Gap_sel, aes(lifeExp, country)) + #note that the plot here is in alphabetical order from Australia to Nigeria.
+  geom_point() +
+  labs(x="Life expectancy", y = "Country") +
+  ggtitle("Life expectancy by country")+theme(plot.title = element_text(hjust = 0.5))
+
+Gap_sel %>% #note that the plot is also in alphabetical order from Australia to Nigeria.
+  ggplot(aes(country, lifeExp, fill = country)) +
+  scale_y_log10() +
+  geom_violin() +
+  labs(x="Country", y = "Life expectancy") +
+  ggtitle("GDP per capita by country")+theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+Here we reordered by maximum life expectancy.
+
+```{r, fig.width=5, fig.height=2.5}
+Gap <- Gap_sel %>%
+  mutate(country = fct_reorder(country, lifeExp, .fun = max)) #reorder by the mean life expectancy
+
+knitr::kable(Gap)
+
+
+ggplot(Gap, aes(lifeExp, country)) + #the chunk code here gives an ordered scatterplot (arranged and oredered by the maximum life expectancy)
+  geom_point() +
+  labs(x="Life expectancy", y = "Country") +
+  ggtitle("Life expectancy by country")+theme(plot.title = element_text(hjust = 0.5))
+
+
+Gap %>% #This gives an ordered violin plot. Before, Australia was the first and now we have Nigeria being the country with the lowest life expectancy.
+  ggplot(aes(country, lifeExp, fill = country)) +
+  scale_y_log10() +
+  geom_violin() +
+  labs(x="Country", y = "Life expectancy") +
+  ggtitle("GDP per capita by country")+theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+### Write and read the `Gap` data frame as a `csv`. 
+
+```{r}
+write_csv(Gap, "Gap.csv") #This chunk code writes data to file
+```
+
+
+Read this Gap csv, saving it to `mydata`:
+
+The csv file do not preserve the ordering when imported. The `csv` does not survive the round trip of writing to file then reading back in.
+
+```{r, fig.width=5, fig.height=2.5}
+mydata <- read_csv("Gap.csv")
+head(mydata) %>% knitr::kable()
+
+mydata %>%
+  ggplot(aes(lifeExp, country)) +
+  geom_point() +
+  labs(x="Life expectancy", y = "Country") +
+  ggtitle("Life expectancy by country")+theme(plot.title = element_text(hjust = 0.5))
+
+identical(Gap,mydata) #The written data and the imported data are not the same.
+```
+
+
+### Write and read the `Gap` data as `RDS`:
+
+The order is preserved when `RDS` is used.
+
+```{r}
+saveRDS(Gap, "Gap.rds")
+```
+
+
+Read this Gap RDS, and saving it to `mydata2`:
+
+The rds file does preserve the ordering when imported.
+
+```{r, fig.width=5, fig.height=2.5}
+mydata2 <- readRDS("Gap.rds")
+head(mydata2) %>% knitr::kable()
+
+mydata2 %>% #the scatterplot
+  ggplot(aes(lifeExp, country)) +
+  geom_point() +
+  labs(x="Life expectancy", y = "Country") +
+  ggtitle("Life expectancy by country")+theme(plot.title = element_text(hjust = 0.5))
+
+
+mydata2 %>% #the violin plot
+  ggplot(aes(country, lifeExp, fill = country)) +
+  scale_y_log10() +
+  geom_violin() +
+  labs(x="Country", y = "Life expectancy") +
+  ggtitle("GDP per capita by country")+theme(plot.title = element_text(hjust = 0.5))
+
+identical(Gap,mydata2) #The written data and the imported data are the same.
+```
+
+### Write and read the `Gap` data frame using `dput`:
+
+The order is preserved when `dput/dget` is used.
+
+```{r}
+dput(Gap, "Gap.txt")
+```
+
+
+Read in data, saving it to `mydata3`:
+
+The txt file also preserves the ordering when imported.
+
+```{r, fig.width=5, fig.height=2.5}
+mydata3 <- dget("Gap.txt")
+head(mydata3) %>% knitr::kable()
+
+str(mydata3)
+
+mydata3 %>%
+  ggplot(aes(lifeExp, country)) +
+  geom_point() +
+  labs(x="Life expectancy", y = "Country") +
+  ggtitle("Life expectancy by country")+theme(plot.title = element_text(hjust = 0.5))
+
+mydata3 %>% #the violin plot
+  ggplot(aes(country, lifeExp, fill = country)) +
+  scale_y_log10() +
+  geom_violin() +
+  labs(x="Country", y = "Life expectancy") +
+  ggtitle("GDP per capita by country")+theme(plot.title = element_text(hjust = 0.5))
+
+identical(Gap,mydata3) #The written data and the imported data are the same.
+```
+
+##PART3: Visualization design:
+
+### Replotting the ordered data here.
+
+Here we replotted the ordered data with the `theme` command and `colour` included. The code here give the life expectancy of each country for the given years.
+
+```{r, fig.width=8, fig.height=6}
+ggplot(Gap, aes(year, lifeExp)) +
+     facet_wrap(~ country) +
+     geom_point() +
+     labs(x = "Country",
+          y = "Life expectancy",
+          title = "Yearly life expectancy of 5 countries") +
+  theme_bw() +
+  theme(axis.text = element_text(size=13),
+          strip.background = element_rect(fill = "grey"), #colours the stripe grey 
+          panel.background = element_rect(fill = "lightyellow")) #colours the background of the page.
+  
+```
+
+### Making the plot look better
+
+I copied code from homework2 here: From my previous homework, I didn't adjust the stripe text, colour and size. Also, I did not do anything to the panel and the plot size. Similarly, my plot has no label. 
+
+```{r, fig.width=8, fig.height=6}
+ggplot(data=gapminder) +
+  geom_point(mapping = aes(lifeExp, gdpPercap, color = continent)) + 
+  facet_wrap(~ continent, scales = "free_x") +
+  scale_y_log10()
+```
+
+Here I am remaking the previous figure above in the light of something we learned in the recent class meetings about visualization design and color using `RColorBrewer`. With the code below, we are able to adjust the plot to suit its purpose. The `theme_bw` makes the points more obvious and easier to see as opposed to the previous one. This plot adjusted the stripes, colour and include the `dollar` sign. In general, I find the below plot more informative than the previous one.
+
+```{r, fig.width=8, fig.height=6}
+RColorBrewer::display.brewer.all()
+library(scales)
+
+gg2_plot <- ggplot(data=gapminder) +
+  geom_point(mapping = aes(gdpPercap, lifeExp, color = continent), alpha = 0.3) + 
+  facet_wrap(~ continent) +
+  scale_x_log10(labels=dollar_format()) +
+  labs(x = 'GDP per capita', y = 'Life expectancy', title = 'GDP by life expectancy') +
+  theme_bw() + #give the panal background
+  theme(axis.title=element_text(size=13,face="bold"), #increase the size of the axis title
+        axis.text = element_text(size=10), #increase the size of the axis text
+          strip.background = element_rect(fill = "grey"), #colour the strip background with grey colour
+        strip.text = element_text(size = 13)) + #increase the size of the strip text 
+  scale_color_manual(values = continent_colors) +
+  theme(
+    plot.title = element_text(hjust = 0.5), #position the title at the middle
+    legend.position = "none" #remove legend
+    )
+gg2_plot
+```
+
+###Convert `gg2_plot` to a `plotly` graph
+
+The code here converts the `ggplot` to `plotly`. With `plotly` as opposed to `ggplot`, you can click on the plot and zoom in and out, pan, reset scale, download the plot as png, see both the value of life expectancy and gdpPercap when you click on a point, and a whole lots more with plotly. But please note that I have commented this out so as to have a markdown file.
+
+```{r, fig.width=8, fig.height=6}
+#ggplotly(gg2_plot)
+```
+
+##PART4: Writing figures to file:
+
+#### Use `ggplotly` to write a figure to file
+
+The command here converts the `ggplot` to `plotly` and then save the `.html` plot to file since `ggsave` won't work with plotly but you can use saveWidget. I have also commented this out so as to have a markdown file.
+
+```{r}
+#gg2_plot %>%
+  #ggplotly() %>%
+  #htmlwidgets::saveWidget(file = "graph.html") 
+```
+
+
+#### Use `ggsave` to write a figure to file
+
+Here I have saved the `gg2_plot` to file as `my_plot1.png`, `my_plot2.png`, `my_plot3.png`, `my_plot4.png`, `my_plot5.png`, `my_plot6.png`. 
+
+```{r}
+ggsave("my_plot1.png", gg2_plot) # default width and height
+```
+
+![](my_plot1.png)
+
+#### Explicit provision of the plot object `gg2_plot`.
+
+We need to specify the `(..., plot = p)` to have the susbsequent plot saved to file. It won't be saved as the latest version of plot if it is not specified. 
+
+```{r, fig.width=7, fig.height=4}
+
+ggsave(filename = "./my_plot2.png", plot = gg2_plot, units = "cm", height = 10, width = 15) # specfied width and height
+```
+
+![](my_plot2.png)
+
+```{r}
+ggsave("./my_plot3.png", plot = gg2_plot, dpi = 200) # normal resolution
+```
+
+![](my_plot3.png)
+
+```{r}
+ggsave("./my_plot4.png", plot = gg2_plot, dpi = 50) # low resolution
+```
+
+![](my_plot4.png)
+
+```{r}
+ggsave("./my_plot5.eps", plot = gg2_plot, device = "eps") # vector format
+```
+
+![](my_plot5.eps)
+
+```{r}
+ggsave("./my_plot6.bmp", plot = gg2_plot, device = "bmp") # raster format
+```
+
+![](my_plot6.bmp)
+
+##But I want to do more: Deeper exploration of the forcats packages
+
+### `fct_infreq()`
+
+The code here rearranged according to the frequency.
+
+```{r, fig.width=5, fig.height=2.5}
+cont <- gapminder$continent
+
+cont %>%
+  fct_infreq() %>%
+  qplot(fill = cont) +
+  labs(x="Continent", y = "Frequency") +
+  ggtitle("Frequency of each continents")+theme(plot.title = element_text(hjust = 0.5)) +
+  theme_bw()
+
+```
+
+### `fct_rev()`
+
+Here, the arrangement is reversed from the previous one. Levels rearranged in ascending order of frequency.
+
+```{r, fig.width=5, fig.height=2.5}
+cont %>%
+  fct_infreq() %>%
+  fct_rev() %>%
+  qplot(fill = cont) +
+  labs(x="Continent", y = "Frequency") +
+  ggtitle("Frequency of each continents")+theme(plot.title = element_text(hjust = 0.5)) +
+  theme_bw()
+
+```
+
+
+### `fct_reorder2()`
+
+Here, we used the previous countries selected to explore more of the factor level reordering functions.
+
+
+```{r, fig.width=5, fig.height=2.5}
+sel_countries <- c("Nigeria", "Australia", "Canada", "Austria", "China" ) 
+
+
+gap_select <- gapminder %>%
+  filter(country %in% sel_countries) %>% #the code filters all countries to only selected countries
+  droplevels() 
+
+gap_select %>% #this chunk code arranged alphabetically
+  ggplot(aes(year, gdpPercap)) +
+  geom_line(aes(group=country, colour=country)) +
+  labs(x="Year", y = "GDP per capita") +
+  ggtitle("GDP per capita by countries in dofferent years")+theme(plot.title = element_text(hjust = 0.5)) +
+  theme_bw()
+
+
+
+gap_select %>% #this chunk code arranged by GDP per capita and year.
+  mutate(country = fct_reorder2(country, year, gdpPercap)) %>%
+  ggplot(aes(year, gdpPercap)) +
+  geom_line(aes(group=country, colour=country)) +
+  labs(x="Year", y = "GDP per capita") +
+  ggtitle("GDP per capita by countries in different years")+theme(plot.title = element_text(hjust = 0.5))
+
+
+```
+
+### `fct_relevel()`
+
+The code here put Canada after the first level.
+
+```{r}
+gap_select$country %>%
+  fct_relevel("Canada", after = 1) %>%
+  levels() %>%
+  head()
+```
+
+### `fct_recode()`
+
+The code here changed the level Nigeria to Naija.
+
+```{r}
+gap_select$country %>%
+  fct_recode("Can" = "Canada","Naija" = "Nigeria") %>%
+  levels() %>%
+  head()
+```
+
+
+### `fct_collapse()`
+
+The code here collapses three countries `Australia`, `Austria` and `China` into a Combo.                              
+
+```{r, fig.width=5, fig.height=2.5}
+gap_select$country %>%
+  fct_collapse("Combo" = c("Australia","Austria", "China")) %>%
+  fct_rev() %>%
+  qplot(fill=gap_select$country) +
+  labs(x="Country", y = "Frequency") +
+  ggtitle("Frequency of each country")+theme(plot.title = element_text(hjust = 0.5)) +
+  theme_bw()
+
+```
+
+### `fct_lump()`
+
+The code here collapses countries to the same frequencies but keeps the top two frequent level.                              
+
+```{r, fig.width=5, fig.height=2.5}
+gap_select$country %>%
+  fct_lump(n=2) %>%
+  levels() %>%
+  head()
+
+cont %>%
+  fct_lump(n=2) %>%
+  qplot(fill = cont) +
+  labs(x="Country", y = "Frequency") +
+  ggtitle("Frequency of each country")+theme(plot.title = element_text(hjust = 0.5)) +
+  theme_bw()
+```
+
+
+## References:
+
+[R for Data science](http://r4ds.had.co.nz/factors.html)
+
+[STAT545 class exercise12 and note](https://github.com/funkedavid82/Stat545_participation/blob/master/cm012/cm012-exercise.md)
+
+
+[Jenny's note on factor and reordering](https://www.stat.ubc.ca/~jenny/STAT545A/block05_getNumbersOut.html#reordering-the-levels-of-the-country-factor)
+
+[R programming](http://makemeanalyst.com/r-programming/reading-and-writing-data-to-and-from-r/)
