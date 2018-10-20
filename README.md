@@ -24,7 +24,7 @@ Homework 5 repository (Jummy David)
 <td>Readme.md file gives a brief description of all I have in the homework5 folder</td>
 </tr>
 <tr class="even">
-<td><a href="https://github.com/STAT545-UBC-students/hw05-funkedavid82/blob/master/hw05_Gapminder.md">hw05_Gapminder.md</a></td>
+<td><a href="https://github.com/STAT545-UBC-students/hw05-funkedavid82/blob/master/hw05-Gapminder.md">hw05_Gapminder.md</a></td>
 <td>Factor and figure management</td>
 </tr>
 </tbody>
